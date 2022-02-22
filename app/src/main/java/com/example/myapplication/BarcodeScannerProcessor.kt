@@ -29,7 +29,7 @@ import com.google.mlkit.vision.common.InputImage
 class BarcodeScannerProcessor(context: Context) : VisionProcessorBase<List<Barcode>>(context) {
 
    private val options = BarcodeScannerOptions.Builder()
-       .setBarcodeFormats(Barcode.FORMAT_ITF)
+       .setBarcodeFormats(Barcode.FORMAT_ITF, Barcode.FORMAT_QR_CODE)
        .build();
 
   private val barcodeScanner: BarcodeScanner = BarcodeScanning.getClient(options)
