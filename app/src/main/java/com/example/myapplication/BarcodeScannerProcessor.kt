@@ -28,9 +28,10 @@ import com.google.mlkit.vision.common.InputImage
 
 class BarcodeScannerProcessor(context: Context) : VisionProcessorBase<List<Barcode>>(context) {
 
-   val options = BarcodeScannerOptions.Builder()
-       .setBarcodeFormats(Barcode.FORMAT_UNKNOWN)
+   private val options = BarcodeScannerOptions.Builder()
+       .setBarcodeFormats(Barcode.FORMAT_ITF)
        .build();
+
   private val barcodeScanner: BarcodeScanner = BarcodeScanning.getClient(options)
 
   override fun stop() {
@@ -49,6 +50,7 @@ class BarcodeScannerProcessor(context: Context) : VisionProcessorBase<List<Barco
     for (i in barcodes.indices) {
       val barcode = barcodes[i]
       graphicOverlay.add(BarcodeGraphic(graphicOverlay, barcode))
+      Log.v(TAG_FINAL, "Barcode: ${barcode.rawValue}")
     }
   }
 

@@ -55,6 +55,7 @@ abstract class VisionProcessorBase<T>(context: Context) : VisionImageProcessor {
 
   companion object {
     const val MANUAL_TESTING_LOG = "LogTagForTest"
+    const val TAG_FINAL = "TAG_RESULT"
     private const val TAG = "VisionProcessorBase"
   }
 

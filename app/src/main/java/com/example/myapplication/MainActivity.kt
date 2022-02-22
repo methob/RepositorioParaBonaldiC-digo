@@ -2,11 +2,15 @@ package com.example.myapplication
 
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -17,8 +21,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
+import com.example.myapplication.Utils.getMaximumOutputSize
+import com.example.myapplication.VisionProcessorBase.Companion.TAG_FINAL
 import com.google.mlkit.common.MlKitException
-import java.util.ArrayList
+import java.util.*
 
 class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsResultCallback {
 
@@ -101,32 +107,44 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
         imageProcessor =  BarcodeScannerProcessor(this)
 
         val builder = ImageAnalysis.Builder()
-        builder.setTargetResolution(Size(1280, 960))
-        analysisUseCase = builder.build()
+        getMaximumOutputSize(this)?.let { size ->
+            Log.d(TAG_FINAL, "MaximumSize -> height: ${size.height} -> width: ${size.width} ")
+            builder.setTargetResolution(size)
+        } ?: builder.setTargetResolution(Size(1280, 960))
 
+
+        analysisUseCase = builder.build()
         needUpdateGraphicOverlayImageSourceInfo = true
 
         analysisUseCase?.setAnalyzer(
             // imageProcessor.processImageProxy will use another thread to run the detection underneath,
             // thus we can just runs the analyzer itself on main thread.
-            ContextCompat.getMainExecutor(this@MainActivity), { imageProxy: ImageProxy ->
-                if (needUpdateGraphicOverlayImageSourceInfo) {
-                    val isImageFlipped = lensFacing == CameraSelector.LENS_FACING_FRONT
-                    val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                    if (rotationDegrees == 0 || rotationDegrees == 180) {
-                        graphicOverlay!!.setImageSourceInfo(imageProxy.width, imageProxy.height, isImageFlipped)
-                    } else {
-                        graphicOverlay!!.setImageSourceInfo(imageProxy.height, imageProxy.width, isImageFlipped)
-                    }
-                    needUpdateGraphicOverlayImageSourceInfo = false
+            ContextCompat.getMainExecutor(this@MainActivity)
+        ) { imageProxy: ImageProxy ->
+            if (needUpdateGraphicOverlayImageSourceInfo) {
+                val isImageFlipped = lensFacing == CameraSelector.LENS_FACING_FRONT
+                val rotationDegrees = imageProxy.imageInfo.rotationDegrees
+                if (rotationDegrees == 0 || rotationDegrees == 180) {
+                    graphicOverlay!!.setImageSourceInfo(
+                        imageProxy.width,
+                        imageProxy.height,
+                        isImageFlipped
+                    )
+                } else {
+                    graphicOverlay!!.setImageSourceInfo(
+                        imageProxy.height,
+                        imageProxy.width,
+                        isImageFlipped
+                    )
                 }
-                try {
-                    imageProcessor!!.processImageProxy(imageProxy, graphicOverlay)
-                } catch (e: MlKitException) {
-                    Toast.makeText(applicationContext, e.localizedMessage, Toast.LENGTH_SHORT).show()
-                }
+                needUpdateGraphicOverlayImageSourceInfo = false
             }
-        )
+            try {
+                imageProcessor!!.processImageProxy(imageProxy, graphicOverlay)
+            } catch (e: MlKitException) {
+                Toast.makeText(applicationContext, e.localizedMessage, Toast.LENGTH_SHORT).show()
+            }
+        }
         cameraProvider!!.bindToLifecycle(/* lifecycleOwner= */ this, cameraSelector!!, analysisUseCase)
     }
 
@@ -163,11 +181,10 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
         }
 
         val builder = Preview.Builder()
-//        val targetResolution = PreferenceUtils.getCameraXTargetResolution(this, lensFacing)
-//        if (targetResolution != null) {
-//            builder.setTargetResolution(Size(1200, 1200))
-//        }
-        builder.setTargetResolution(Size(1280, 960))
+        getMaximumOutputSize(this)?.let { size ->
+            Log.d(TAG_FINAL, "MaximumSize -> height: ${size.height} -> width: ${size.width} ")
+            builder.setTargetResolution(size)
+        } ?: builder.setTargetResolution(Size(1280, 960))
         previewUseCase = builder.build()
         previewUseCase!!.setSurfaceProvider(previewView!!.getSurfaceProvider())
         cameraProvider!!.bindToLifecycle(/* lifecycleOwner= */ this, cameraSelector!!, previewUseCase)
