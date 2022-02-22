@@ -2,10 +2,8 @@ package com.example.myapplication
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.hardware.camera2.CameraAccessException
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.hardware.camera2.params.StreamConfigurationMap
+import android.content.res.Configuration
+import android.graphics.ImageFormat.YUV_420_888
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
@@ -21,12 +19,16 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
-import com.example.myapplication.Utils.getMaximumOutputSize
+import com.example.myapplication.Utils.getCameraCharacteristics
+import com.example.myapplication.Utils.getDisplayInfo
+import com.example.myapplication.Utils.getPreviewOutputSize
 import com.example.myapplication.VisionProcessorBase.Companion.TAG_FINAL
 import com.google.mlkit.common.MlKitException
-import java.util.*
 
 class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsResultCallback {
+
+    private val isPortraitMode: Boolean
+        private get() = (applicationContext.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE)
 
     private var previewView: PreviewView? = null
     private var graphicOverlay: GraphicOverlay? = null
@@ -60,6 +62,10 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
             )
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        bindAllCameraUseCases()
+    }
 
     private fun getRuntimePermissions() {
         val allNeededPermissions = ArrayList<String>()
@@ -107,11 +113,18 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
         imageProcessor =  BarcodeScannerProcessor(this)
 
         val builder = ImageAnalysis.Builder()
-        getMaximumOutputSize(this)?.let { size ->
-            Log.d(TAG_FINAL, "MaximumSize -> height: ${size.height} -> width: ${size.width} ")
-            builder.setTargetResolution(size)
-        } ?: builder.setTargetResolution(Size(1280, 960))
-
+        getDisplayInfo()?.let { display ->
+            getCameraCharacteristics(this)?.let { characteristics ->
+                val previewSize = getPreviewOutputSize(display, characteristics, android.media.ImageReader::class.java, YUV_420_888)
+                Log.d(TAG_FINAL, "AnalysisSize -> height: ${previewSize.height} -> width: ${previewSize.width} ")
+                if(isPortraitMode){
+                    builder.setTargetResolution(Size(previewSize.height, previewSize.width))
+                }
+                else {
+                    builder.setTargetResolution(previewSize)
+                }
+            } ?: builder.setTargetResolution(Size(1920, 1080))
+        }
 
         analysisUseCase = builder.build()
         needUpdateGraphicOverlayImageSourceInfo = true
@@ -122,16 +135,19 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
             ContextCompat.getMainExecutor(this@MainActivity)
         ) { imageProxy: ImageProxy ->
             if (needUpdateGraphicOverlayImageSourceInfo) {
+
                 val isImageFlipped = lensFacing == CameraSelector.LENS_FACING_FRONT
                 val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-                if (rotationDegrees == 0 || rotationDegrees == 180) {
-                    graphicOverlay!!.setImageSourceInfo(
+                Log.d(TAG_FINAL, "ImageAnalyzer: rotation: $rotationDegrees")
+                Log.d(TAG_FINAL, "ImageAnalyzer: rotation: isFlipped: $isImageFlipped")
+                if (!isPortraitMode) {
+                    graphicOverlay?.setImageSourceInfo(
                         imageProxy.width,
                         imageProxy.height,
                         isImageFlipped
                     )
                 } else {
-                    graphicOverlay!!.setImageSourceInfo(
+                    graphicOverlay?.setImageSourceInfo(
                         imageProxy.height,
                         imageProxy.width,
                         isImageFlipped
@@ -181,13 +197,23 @@ class MainActivity : AppCompatActivity(), ActivityCompat.OnRequestPermissionsRes
         }
 
         val builder = Preview.Builder()
-        getMaximumOutputSize(this)?.let { size ->
-            Log.d(TAG_FINAL, "MaximumSize -> height: ${size.height} -> width: ${size.width} ")
-            builder.setTargetResolution(size)
-        } ?: builder.setTargetResolution(Size(1280, 960))
+        getDisplayInfo()?.let { display ->
+            getCameraCharacteristics(this)?.let { characteristics ->
+                val previewSize = getPreviewOutputSize(display, characteristics, android.media.MediaRecorder::class.java)
+                Log.d(TAG_FINAL, "PreviewSize -> height: ${previewSize.height} -> width: ${previewSize.width} ")
+
+                if(isPortraitMode){
+                    builder.setTargetResolution(Size(previewSize.height, previewSize.width))
+                }
+                else {
+                    builder.setTargetResolution(previewSize)
+                }
+            } ?: builder.setTargetResolution(Size(1920, 1080))
+        }
+
         previewUseCase = builder.build()
-        previewUseCase!!.setSurfaceProvider(previewView!!.getSurfaceProvider())
-        cameraProvider!!.bindToLifecycle(/* lifecycleOwner= */ this, cameraSelector!!, previewUseCase)
+        previewUseCase!!.setSurfaceProvider(previewView?.surfaceProvider)
+        cameraProvider!!.bindToLifecycle(this, cameraSelector!!, previewUseCase)
     }
 
     private fun allPermissionsGranted(): Boolean {

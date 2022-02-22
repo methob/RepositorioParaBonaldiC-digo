@@ -205,10 +205,8 @@ abstract class VisionProcessorBase<T>(context: Context) : VisionImageProcessor {
     if (isShutdown) {
       return
     }
-    var bitmap: Bitmap? = null
-//    if (!PreferenceUtils.isCameraLiveViewportEnabled(graphicOverlay.context)) {
-//      bitmap = BitmapUtils.getBitmap(image)
-//    }
+
+    //val bitmap: Bitmap? = BitmapUtils.getBitmap(image)
 
     if (isMlImageEnabled(graphicOverlay.context)) {
       val mlImage =
@@ -216,7 +214,7 @@ abstract class VisionProcessorBase<T>(context: Context) : VisionImageProcessor {
       requestDetectInImage(
         mlImage,
         graphicOverlay,
-        /* originalCameraImage= */ bitmap,
+        /* originalCameraImage= */ null,
         /* shouldShowFps= */ true,
         frameStartMs
       )
@@ -233,7 +231,7 @@ abstract class VisionProcessorBase<T>(context: Context) : VisionImageProcessor {
     requestDetectInImage(
       InputImage.fromMediaImage(image.image!!, image.imageInfo.rotationDegrees),
       graphicOverlay,
-      /* originalCameraImage= */ bitmap,
+      /* originalCameraImage= */ null,
       /* shouldShowFps= */ true,
       frameStartMs
     )

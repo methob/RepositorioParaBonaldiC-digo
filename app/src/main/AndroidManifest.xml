@@ -30,7 +30,9 @@
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.MyApplication"
-            android:exported="true" >
+            android:exported="true"
+            android:screenOrientation="sensor"
+            android:configChanges="keyboardHidden|orientation|screenSize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
